@@ -59,6 +59,18 @@ class Ball extends Shape {
         
         return false;
     }
+
+    restorePosition() {
+        this.x = canvas.width / 2;
+        this.y = canvas.height - 30;
+        this.dx = 1;
+        this.dy = -1;
+    }
+
+    move() {
+        this.x += this.dx;
+        this.y += this.dy;
+    }
 }
 
 class Paddle extends Shape {
@@ -75,6 +87,10 @@ class Paddle extends Shape {
         this.context.fillStyle = primaryColor;
         this.context.fill();
         this.context.closePath();
+    }
+    
+    restorePosition() {
+        this.x = (canvas.width - this.width) / 2;
     }
 }
 
@@ -114,6 +130,13 @@ function collisionDetection() {
         bricksRow.map((brick) => {
             if (brick.exists) {
                 balls.forEach((ball) => {
+                    const leftWallTouched = ball.x + ball.dx > canvas.width - ball.radius;
+                    const rightWallTouched = ball.x + ball.dx < ball.radius;
+                    const topWallTouched = ball.y + ball.dy < ball.radius;
+                    const bottomWallTouched = ball.y + ball.dy > canvas.height - ball.radius;
+                    const paddleTouched = ball.x > paddle.x && ball.x < paddle.x + paddle.width;
+
+                    // bricks
                     if (ball.collidedWithBrick(brick)) {
                         ball.dy = -ball.dy;
                         brick.destroy();
@@ -125,10 +148,27 @@ function collisionDetection() {
                             setLevel();
                         }
                     }
-                })
+
+                    // walls
+                    if (leftWallTouched || rightWallTouched) {
+                        ball.dx = -ball.dx;
+                    }
+                    
+                    if (topWallTouched) {
+                        ball.dy = -ball.dy;
+                    } else if (bottomWallTouched) {
+                        if (paddleTouched) {
+                            ball.dy = -ball.dy;
+                        } else {
+                            loose();
+                            ball.restorePosition();
+                            paddle.restorePosition();
+                        }
+                    }
+                });
             }
-        })
-    })
+        });
+    });
 }
 
 function reloadGame() {
@@ -138,6 +178,14 @@ function reloadGame() {
     initBricks(level);
 }
 
+function loose() {
+    lives--;
+    if (!lives) {
+        alert("GAME OVER");
+        reloadGame();
+    }
+}
+
 function drawBalls() {
     balls.forEach(ball => ball.draw());
 }
@@ -145,7 +193,7 @@ function drawBalls() {
 function drawBricks() {
     bricks.forEach(bricksRow => {
         bricksRow.forEach(brick => {
-            if (brick.exists) brick.draw(ctx);
+            if (brick.exists) brick.draw();
         });
     });
 }
@@ -159,7 +207,7 @@ function drawScore() {
 function drawLives() {
     ctx.font = primaryFontStyle;
     ctx.fillStyle = primaryColor;
-    ctx.fillText(`Lives: ${lives}`, canvas.width - 65, 20)
+    ctx.fillText(`Lives: ${lives}`, canvas.width - 65, 20);
 }
 
 function draw() {
@@ -171,41 +219,15 @@ function draw() {
     drawLives();
     collisionDetection();
 
-    
     balls.forEach((ball) => {
-        if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
-            ball.dx = -ball.dx;
-        }
-        
-        if (ball.y + ball.dy < ball.radius) {
-            ball.dy = -ball.dy;
-        } else if (ball.y + ball.dy > canvas.height - ball.radius) {
-            if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
-                ball.dy = -ball.dy;
-            } else {
-                lives--;
-                if (!lives) {
-                    alert("GAME OVER");
-                    reloadGame();
-                } else {
-                    ball.x = canvas.width / 2;
-                    ball.y = canvas.height - 30;
-                    ball.dx = 1;
-                    ball.dy = -1;
-                    paddle.x = (canvas.width - paddle.width) / 2;
-                }
-            }
-        }
-    
         if (rightPressed && paddle.x < canvas.width - paddle.width) {
             paddle.x += 1;
         }
         else if (leftPressed && paddle.x > 0) {
             paddle.x -= 1;
         }
-    
-        ball.x += ball.dx;
-        ball.y += ball.dy;
+
+        ball.move();
     });
 
     requestAnimationFrame(draw);
@@ -214,8 +236,7 @@ function draw() {
 function keyDownHandler(e) {
     if (e.keyCode == 39) {
         rightPressed = true;
-    }
-    else if (e.keyCode == 37) {
+    } else if (e.keyCode == 37) {
         leftPressed = true;
     }
 }
@@ -223,8 +244,7 @@ function keyDownHandler(e) {
 function keyUpHandler(e) {
     if (e.keyCode == 39) {
         rightPressed = false;
-    }
-    else if (e.keyCode == 37) {
+    } else if (e.keyCode == 37) {
         leftPressed = false;
     }
 }
